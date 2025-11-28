@@ -32,13 +32,13 @@ def _save_token_to_db(token):
     cursor = conn.cursor()
     now = datetime.now()
 
-    cursor.execute("SELECT id FROM auth_token LIMIT 1")
+    cursor.execute("SELECT id FROM pub_auth_token LIMIT 1")
     data = cursor.fetchone()
 
     if data:
-        cursor.execute("UPDATE auth_token SET token = %s, created_at = %s WHERE id = %s", (token, now, data[0]))
+        cursor.execute("UPDATE pub_auth_token SET token = %s, created_at = %s WHERE id = %s", (token, now, data[0]))
     else:
-        cursor.execute("INSERT INTO auth_token (token, created_at) VALUES (%s, %s)", (token, now))
+        cursor.execute("INSERT INTO pub_auth_token (token, created_at) VALUES (%s, %s)", (token, now))
 
     conn.commit()
     cursor.close()

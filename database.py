@@ -21,7 +21,7 @@ def init_db():
 
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS auth_token (
+        CREATE TABLE IF NOT EXISTS public.pub_auth_token (
             id SERIAL PRIMARY KEY,
             token TEXT,
             created_at TIMESTAMP
