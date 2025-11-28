@@ -11,7 +11,7 @@ app = FastAPI()
 def ao_iniciar():
     init_db()
     try:
-        
+
         t = threading.Thread(target=sincronizar_despesas, daemon=True)
         t.start()
         print("Sincronização inicial iniciada em background.")
@@ -24,21 +24,21 @@ def home():
 
 @app.post("/sincronizar")
 def iniciar_sincronizacao(background_tasks: BackgroundTasks):
-    
+
     background_tasks.add_task(sincronizar_despesas)
     return {"mensagem": "Sincronização iniciada em background."}
 
 def run_full_once():
-  
+
     try:
         init_db()
-        
+
         try:
             token = get_valid_token()
             print("Token obtido com sucesso.")
         except Exception as e:
             print(f"Falha ao obter token: {e}")
-           
+
         sincronizar_despesas()
         print("Sincronização completa (execução única).")
     except Exception as e:
@@ -46,10 +46,10 @@ def run_full_once():
 
 
 if __name__ == "__main__":
-  
+
     if "--serve" in sys.argv:
         import uvicorn
         uvicorn.run(app, host="0.0.0.0", port=8000)
     else:
-      
+
         run_full_once()
