@@ -17,8 +17,9 @@ def sincronizar_despesas():
         sql_busca = """
             SELECT grupo, empresa, filial, unidade, diferenciadorsequencia, sequencia, numero 
             FROM processoaduaneiro 
-            WHERE dtfechamento IS NULL 
-               OR dtfechamento >= NOW() - INTERVAL '3 days'
+            WHERE (dtfechamento IS NULL 
+               OR dtfechamento >= NOW() - INTERVAL '3 days')
+               AND dtemissao > '2025-01-01'
         """
         cursor.execute(sql_busca)
         processos = cursor.fetchall()
