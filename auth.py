@@ -1,0 +1,76 @@
+import requests
+import json
+import os
+from datetime import datetime, timedelta
+from database import get_db_connection
+
+# Carrega variáveis
+API_LOGIN_URL = os.getenv("API_LOGIN_URL")
+API_EMAIL = os.getenv("API_EMAIL")
+API_PASSWORD = os.getenv("API_PASSWORD")
+
+def _get_external_token():
+    """Faz login na API e retorna o token string."""
+    payload = json.dumps({
+        "email": API_EMAIL,
+        "password": API_PASSWORD
+    })
+    headers = {'Content-Type': 'application/json'}
+    
+    print("Autenticando na API externa...")
+    response = requests.post(API_LOGIN_URL, headers=headers, data=payload)
+    response.raise_for_status()
+    
+    token = response.text.strip()
+    if token.startswith('"') and token.endswith('"'):
+        token = token[1:-1]
+    return token
+
+def _save_token_to_db(token):
+    """Salva o token novo no banco."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now = datetime.now()
+    
+    cursor.execute("SELECT id FROM auth_token LIMIT 1")
+    data = cursor.fetchone()
+    
+    if data:
+        cursor.execute("UPDATE auth_token SET token = %s, created_at = %s WHERE id = %s", (token, now, data[0]))
+    else:
+        cursor.execute("INSERT INTO auth_token (token, created_at) VALUES (%s, %s)", (token, now))
+        
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def get_valid_token():
+    """Retorna um token válido (do cache ou renovado)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT token, created_at FROM auth_token LIMIT 1")
+    data = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if data:
+        token_salvo, data_criacao = data
+        # Validade de 7h55m para margem de segurança
+        if (datetime.now() - data_criacao) < timedelta(hours=7, minutes=55):
+            return token_salvo
+
+    # Se não existe ou expirou
+    novo_token = _get_external_token()
+    _save_token_to_db(novo_token)
+    return novo_token
+
+
+def refresh_token():
+    """Força a renovação do token externo e salva no banco.
+
+    Use quando uma chamada externa retornar 401 e você quer tentar obter
+    um token novo imediatamente.
+    """
+    novo_token = _get_external_token()
+    _save_token_to_db(novo_token)
+    return novo_token
