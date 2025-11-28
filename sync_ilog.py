@@ -13,6 +13,11 @@ def sincronizar_despesas():
     try:
         print("--- Iniciando Sincronização ---")
 
+        # Limpa toda a tabela de despesas antes de recarregar
+        cursor.execute("DELETE FROM public.pub_processoaduaneiro_despesa_ilog")
+        conn.commit()
+        print("Tabela pub_processoaduaneiro_despesa_ilog limpa.")
+
         # 1. Busca processos (sem alteração)
         sql_busca = """
             SELECT grupo, empresa, filial, unidade, diferenciadorsequencia, sequencia, numero 
