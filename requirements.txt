@@ -3,3 +3,5 @@ uvicorn
 requests
 psycopg2
 python-dotenv
+pytest
+pytest-asyncio
