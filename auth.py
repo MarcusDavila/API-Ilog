@@ -48,7 +48,7 @@ def get_valid_token():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT token, created_at FROM auth_token LIMIT 1")
+    cursor.execute("SELECT token, created_at FROM pub_auth_token LIMIT 1")
     data = cursor.fetchone()
     cursor.close()
     conn.close()

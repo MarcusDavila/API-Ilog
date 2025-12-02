@@ -13,12 +13,8 @@ def sincronizar_despesas():
     try:
         print("--- Iniciando Sincronização ---")
 
-
-        cursor.execute("DELETE FROM public.pub_processoaduaneiro_despesa_ilog")
-        conn.commit()
-        print("Tabela pub_processoaduaneiro_despesa_ilog limpa.")
-
-
+        # REMOVIDO: O delete global foi retirado daqui para não limpar a tabela inteira.
+        
         sql_busca = """
             SELECT grupo, empresa, filial, unidade, diferenciadorsequencia, sequencia, numero 
             FROM processoaduaneiro 
@@ -30,15 +26,24 @@ def sincronizar_despesas():
         processos = cursor.fetchall()
         print(f"Processos encontrados: {len(processos)}")
 
+        # Obtém token uma vez e reutiliza durante todo o processamento.
+        try:
+            token = get_valid_token()
+        except Exception as e:
+            print(f"Aviso: falha ao obter token inicial: {e}. Tentaremos obter por processo.")
+            token = None
+
         for row in processos:
             grupo, empresa, filial, unidade, dif_seq, seq, numero_ref = row
 
+
             try:
-                token = get_valid_token()
+                # Usa token em memória (obtido antes). Se estiver vazio, tenta obter do DB.
+                if not token:
+                    token = get_valid_token()
                 headers = {'Authorization': f'Bearer {token}'}
 
                 response = requests.get(URL_WEBHOOK, headers=headers, params={'Referencia': numero_ref})
-
 
                 if response.status_code == 401:
                     print(f"401 ao consultar API para {numero_ref}. Tentando renovar token e refazer.")
@@ -50,7 +55,6 @@ def sincronizar_despesas():
                         print(f"Falha ao renovar token: {e}")
 
                 if not response.ok:
-
                     body = None
                     try:
                         body = response.text
@@ -60,7 +64,6 @@ def sincronizar_despesas():
 
                     if response.status_code == 401:
                         continue
-
                     continue
 
                 dados_api = response.json()
@@ -72,20 +75,21 @@ def sincronizar_despesas():
                 continue
 
             lista_despesas = dados_api["data"].get("despesas", [])
+            
+            # Se não houver despesas na API, pulamos (não deleta nem insere nada)
             if not lista_despesas:
                 continue
 
-
-            cursor.execute("""
-                DELETE FROM public.pub_processoaduaneiro_despesa_ilog
-                WHERE grupo=%s AND empresa=%s AND filial=%s AND unidade=%s 
-                  AND diferenciadorsequencia=%s AND sequencia=%s
-            """, (grupo, empresa, filial, unidade, dif_seq, seq))
-
             try:
+                # 1. Deleta SOMENTE os registros deste processo específico antes de inserir os novos
+                cursor.execute("""
+                    DELETE FROM public.pub_processoaduaneiro_despesa_ilog
+                    WHERE grupo=%s AND empresa=%s AND filial=%s AND unidade=%s 
+                      AND diferenciadorsequencia=%s AND sequencia=%s
+                """, (grupo, empresa, filial, unidade, dif_seq, seq))
 
+                # 2. Obtém sequências para os novos registros
                 sequencias = obter_multiplas_sequencias(cursor, len(lista_despesas))
-
 
                 data_hora_atual = datetime.now()
 
@@ -113,15 +117,14 @@ def sincronizar_despesas():
                     )
                     cursor.execute(sql_insert, valores)
 
-
+                # Commit a cada processo para garantir que os dados sejam salvos
+                # mesmo se o script parar no meio.
                 conn.commit()
-                print(f"Processo {numero_ref}: {len(lista_despesas)} despesas salvas.")
+                print(f"Processo {numero_ref}: {len(lista_despesas)} despesas atualizadas.")
 
             except Exception as e:
-
                 conn.rollback()
-                print(f"Erro ao processar {numero_ref}: {e}")
-
+                print(f"Erro ao processar banco de dados para {numero_ref}: {e}")
                 continue
 
     except Exception as e:
