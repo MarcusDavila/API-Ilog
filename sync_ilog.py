@@ -13,7 +13,6 @@ def sincronizar_despesas():
     try:
         print("--- Iniciando Sincronização ---")
 
-        # REMOVIDO: O delete global foi retirado daqui para não limpar a tabela inteira.
         
         sql_busca = """
             SELECT grupo, empresa, filial, unidade, diferenciadorsequencia, sequencia, numero 
@@ -26,7 +25,7 @@ def sincronizar_despesas():
         processos = cursor.fetchall()
         print(f"Processos encontrados: {len(processos)}")
 
-        # Obtém token uma vez e reutiliza durante todo o processamento.
+        
         try:
             token = get_valid_token()
         except Exception as e:
@@ -38,7 +37,7 @@ def sincronizar_despesas():
 
 
             try:
-                # Usa token em memória (obtido antes). Se estiver vazio, tenta obter do DB.
+           
                 if not token:
                     token = get_valid_token()
                 headers = {'Authorization': f'Bearer {token}'}
@@ -76,19 +75,19 @@ def sincronizar_despesas():
 
             lista_despesas = dados_api["data"].get("despesas", [])
             
-            # Se não houver despesas na API, pulamos (não deleta nem insere nada)
+          
             if not lista_despesas:
                 continue
 
             try:
-                # 1. Deleta SOMENTE os registros deste processo específico antes de inserir os novos
+                
                 cursor.execute("""
                     DELETE FROM public.pub_processoaduaneiro_despesa_ilog
                     WHERE grupo=%s AND empresa=%s AND filial=%s AND unidade=%s 
                       AND diferenciadorsequencia=%s AND sequencia=%s
                 """, (grupo, empresa, filial, unidade, dif_seq, seq))
 
-                # 2. Obtém sequências para os novos registros
+               
                 sequencias = obter_multiplas_sequencias(cursor, len(lista_despesas))
 
                 data_hora_atual = datetime.now()
@@ -117,8 +116,7 @@ def sincronizar_despesas():
                     )
                     cursor.execute(sql_insert, valores)
 
-                # Commit a cada processo para garantir que os dados sejam salvos
-                # mesmo se o script parar no meio.
+              
                 conn.commit()
                 print(f"Processo {numero_ref}: {len(lista_despesas)} despesas atualizadas.")
 
